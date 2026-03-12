@@ -33,17 +33,17 @@ impl Sink for IcebergSink {
         let redacted_store_key = self
             .config
             .store_access_key_id
-            .chars()
-            .take(3)
-            .collect::<String>();
+            .as_ref()
+            .map(|k| k.chars().take(3).collect::<String>() + "***")
+            .unwrap_or_else(|| "None".to_string());
         let redacted_store_secret = self
             .config
             .store_secret_access_key
-            .chars()
-            .take(3)
-            .collect::<String>();
+            .as_ref()
+            .map(|k| k.chars().take(3).collect::<String>() + "***")
+            .unwrap_or_else(|| "None".to_string());
         info!(
-            "Opened Iceberg sink connector with ID: {} for URL: {}, store access key ID: {redacted_store_key}***  store secret: {redacted_store_secret}***",
+            "Opened Iceberg sink connector with ID: {} for URL: {}, store access key ID: {redacted_store_key}  store secret: {redacted_store_secret}",
             self.id, self.config.uri
         );
 

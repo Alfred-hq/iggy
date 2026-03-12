@@ -44,6 +44,9 @@ async fn get_rest_catalog(
             config.warehouse.clone(),
         ),
     ]);
+    if let Some(prefix) = &config.catalog_prefix {
+        new_props.insert("prefix".to_string(), prefix.clone());
+    }
     new_props.extend(props);
 
     let catalog = RestCatalogBuilder::default()

@@ -51,3 +51,37 @@ enabled = true
 [[transforms.add_fields.fields]]
 key = "db_table"
 value.static = "nyc.users"
+
+
+##----------- 
+
+type = "sink"
+key = "iceberg"
+enabled = true
+version = 0
+name = "Iceberg sink"
+path = "/plugins/libiggy_connector_iceberg_sink.so"
+plugin_config_format = "toml"
+verbose = true
+
+[[streams]]
+stream = "my-stream"
+topics = ["my-topic-json"]
+schema = "json"
+batch_size = 100
+poll_interval = "5ms"
+consumer_group = "iceberg_sink_connector"
+
+[plugin_config]
+# Required fields for IcebergSinkConfig
+tables = ["test_data.l2book1"]
+catalog_type = "rest"
+warehouse = "iceberg_warehouse"
+uri = "http://172.31.75.55:8181/catalog"
+dynamic_routing = false
+s3_bucket = "lakekeeper-iceberg-warehouse"
+dynamic_route_field = "db_table"
+catalog_prefix = "3f4b89bc-fc5e-11f0-8034-931c11806d44"
+store_url = "https://s3.ap-northeast-1.amazonaws.com"
+store_class = "s3"
+store_region = "ap-northeast-1"
