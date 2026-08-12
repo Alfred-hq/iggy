@@ -27,7 +27,7 @@ use crate::{
 use dlopen2::wrapper::Container;
 use futures::StreamExt;
 use iggy::prelude::{
-    AutoCommit, AutoCommitWhen, IggyClient, IggyConsumer, IggyDuration, IggyMessage,
+    AutoCommit, IggyClient, IggyConsumer, IggyDuration, IggyMessage,
     PollingStrategy,
 };
 use iggy_connector_sdk::decoders::avro::{AvroConfig, AvroStreamDecoder};
@@ -430,6 +430,20 @@ pub(crate) async fn consume_messages(
             return Err(error);
         }
 
+        // Store the consumer offset only after the sink has successfully
+        // processed the batch. This ensures data is never silently skipped:
+        // if the sink fails, the offset stays put and messages will be
+        // redelivered when the connector restarts.
+        consumer
+            .store_offset(current_offset, Some(partition_id))
+            .await
+            .map_err(|e| {
+                error!(
+                    "Failed to store consumer offset {current_offset} for partition {partition_id} after successful batch: {e}"
+                );
+                RuntimeError::IggyError(e)
+            })?;
+
         metrics.inc_messages_processed_with_labels(&labels.counter, processed_count as u64);
         if verbose {
             info!(
@@ -519,7 +533,7 @@ pub(crate) async fn setup_sink_consumers(
         for topic in stream.topics.iter() {
             let mut consumer = iggy_client
                 .consumer_group(consumer_group, &stream.stream, topic)?
-                .auto_commit(AutoCommit::When(AutoCommitWhen::PollingMessages))
+                .auto_commit(AutoCommit::Disabled)
                 .create_consumer_group_if_not_exists()
                 .auto_join_consumer_group()
                 .polling_strategy(PollingStrategy::next())
@@ -737,7 +751,7 @@ async fn process_messages(
     })?;
 
     let ffi_start = Instant::now();
-    (consume)(
+    let ffi_result = (consume)(
         plugin_id,
         topic_meta.as_ptr(),
         topic_meta.len(),
@@ -747,6 +761,17 @@ async fn process_messages(
         messages.len(),
     );
     let ffi_elapsed = ffi_start.elapsed();
+
+    if ffi_result != 0 {
+        error!(
+            "Sink connector with ID: {plugin_id} returned error code: {ffi_result} from consume callback"
+        );
+        return Err(RuntimeError::ConnectorSdkError(
+            iggy_connector_sdk::Error::CannotStoreData(format!(
+                "Sink connector returned error code: {ffi_result}"
+            )),
+        ));
+    }
 
     Ok(SinkBatchTiming {
         processed_count,
