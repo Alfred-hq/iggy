@@ -27,8 +27,7 @@ use crate::{
 use dlopen2::wrapper::Container;
 use futures::StreamExt;
 use iggy::prelude::{
-    AutoCommit, IggyClient, IggyConsumer, IggyDuration, IggyMessage,
-    PollingStrategy,
+    AutoCommit, IggyClient, IggyConsumer, IggyDuration, IggyMessage, PollingStrategy,
 };
 use iggy_connector_sdk::decoders::avro::{AvroConfig, AvroStreamDecoder};
 use iggy_connector_sdk::{
